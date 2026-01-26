@@ -5,26 +5,26 @@
 #include <debugapi.h>
 #include <winternl.h>
 
-typedef NTSTATUS (__stdcall *pNtQueryInformationProcess)(
+typedef NTSTATUS (__stdcall *pNtQueryInformationProcess)(   // We have to re-create the NTSATUS bcs we cant directly call NtQueryInformationProcess
     HANDLE ProcessHandle,
     PROCESSINFOCLASS ProcessInformationClass,
     PVOID ProcessInformation,
     ULONG ProcessInformationLength
 );
 
-typedef struct _PEB_PARTIAL {
+typedef struct _PEB_PARTIAL {   // re-create the PEB struct bcs its a remote process
     BYTE Reserved1[0x18];   // 24 bytes
     PVOID Ldr;
 } PEB_PARTIAL;
 
-typedef struct _PEB_LDR_DATA_PARTIAL {
+typedef struct _PEB_LDR_DATA_PARTIAL {  // re-create the PEB LDR DATA bcs its a remote process
     BYTE Reserved1[8];
     PVOID Reserved2[3];
     PVOID InMemoryOrderModuleList;
 
 } PEB_LDR_DATA_PARTIAL, *PPEB_LDR_DATA_PARTIAL;
 
-typedef struct _LDR_DATA_TABLE_ENTRY_PARTIAL {
+typedef struct _LDR_DATA_TABLE_ENTRY_PARTIAL {  // re-create the LDR DATA TABLE ENTRY bcs its a remote process
     PVOID Reserved1[2]; 
     LIST_ENTRY InMemoryOrderLinks;
     PVOID Reserved2[2];
@@ -40,7 +40,7 @@ typedef struct _LDR_DATA_TABLE_ENTRY_PARTIAL {
     ULONG TimeDateStamp;
 } LDR_DATA_TABLE_ENTRY_PARTIAL, *PLDR_DATA_TABLE_ENTRY_PARTIAL;
 
-typedef struct _BP_ENTRY {
+typedef struct _BP_ENTRY {  // struct for breakpoints, so its easier to manage
     LPVOID addr;
     BYTE original;
 } BP_ENTRY;
@@ -71,9 +71,9 @@ DWORD getPID(const char* target) {
 }
 
 
-BP_ENTRY g_bp = {0};
-BOOL g_bp_active = FALSE;
-BOOL g_pending_single_step = FALSE;
+BP_ENTRY g_bp = {0};    // init the struct on BP ENTRY 
+BOOL g_bp_active = FALSE;   // if there is a bp, for the single step
+BOOL g_pending_single_step = FALSE; // if the single step is active
 
 BOOL setBreakpoint(HANDLE hProcess) {
     HMODULE hUser32 = LoadLibraryA("user32.dll");
@@ -119,7 +119,7 @@ int main(int argc, char **argv) {
     printf("PID: %lu\n", pid);  // optionnal btw
 
 
-    BOOL debug = DebugActiveProcess(pid);
+    BOOL debug = DebugActiveProcess(pid);   // attach debug at the pid
     if(!debug) {
         printf("Error DebugActiveProcess");
         return 1;
@@ -312,10 +312,10 @@ while (current != listHead)
                 FlushInstructionCache(hProcess, g_bp.addr, 1);
 
                 
-                #ifdef _M_X64
-                ctx.EFlags |= 0x100;
+                #ifdef _M_X64           // compilator if, if its x64 or x86
+                ctx.EFlags |= 0x100;    // Trap Flag ' | ' means "dont touch to the other flags !"
                 #else
-                ctx.EFlags |= 0x100;
+                ctx.EFlags |= 0x100;    
                 #endif
 
                 SetThreadContext(hThread, &ctx);
